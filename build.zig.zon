@@ -1,0 +1,14 @@
+.{
+    .name = .thompson_bandit,
+    .version = "0.0.1",
+    .fingerprint = 0x9d6d30db26bd74db,
+    .minimum_zig_version = "0.16.0",
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "LICENSE",
+        "README.md",
+        "CHANGELOG.md",
+    },
+}
