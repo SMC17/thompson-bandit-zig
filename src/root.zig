@@ -26,6 +26,10 @@ pub const poisson = samplers.poisson;
 pub const integrateMC = samplers.integrateMC;
 pub const IntegrateMcResult = samplers.IntegrateMcResult;
 
+pub const sliding_reward = @import("sliding_reward.zig");
+pub const SlidingReward = sliding_reward.SlidingReward;
+pub const SlidingRewardError = sliding_reward.Error;
+
 test {
     @import("std").testing.refAllDecls(@This());
 }
