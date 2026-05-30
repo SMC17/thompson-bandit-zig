@@ -16,6 +16,9 @@ pub const pickWithinBudget = wcet.pickWithinBudget;
 pub const anyArmFits = wcet.anyArmFits;
 pub const totalBudgetUs = wcet.totalBudgetUs;
 
+pub const pcg64 = @import("pcg64.zig");
+pub const Pcg64 = pcg64.Pcg64;
+
 test {
     @import("std").testing.refAllDecls(@This());
 }
