@@ -9,6 +9,13 @@ pub const CountingAllocator = alloc_guard.CountingAllocator;
 pub const expectNoAllocations = alloc_guard.expectNoAllocations;
 pub const expectAtMostAllocations = alloc_guard.expectAtMostAllocations;
 
+pub const wcet = @import("wcet.zig");
+pub const BudgetedArm = wcet.BudgetedArm;
+pub const Pick = wcet.Pick;
+pub const pickWithinBudget = wcet.pickWithinBudget;
+pub const anyArmFits = wcet.anyArmFits;
+pub const totalBudgetUs = wcet.totalBudgetUs;
+
 test {
     @import("std").testing.refAllDecls(@This());
 }
