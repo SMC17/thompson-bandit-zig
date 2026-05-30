@@ -19,6 +19,13 @@ pub const totalBudgetUs = wcet.totalBudgetUs;
 pub const pcg64 = @import("pcg64.zig");
 pub const Pcg64 = pcg64.Pcg64;
 
+pub const samplers = @import("samplers.zig");
+pub const gaussian = samplers.gaussian;
+pub const exponential = samplers.exponential;
+pub const poisson = samplers.poisson;
+pub const integrateMC = samplers.integrateMC;
+pub const IntegrateMcResult = samplers.IntegrateMcResult;
+
 test {
     @import("std").testing.refAllDecls(@This());
 }
