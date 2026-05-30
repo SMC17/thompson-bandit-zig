@@ -30,6 +30,10 @@ pub const sliding_reward = @import("sliding_reward.zig");
 pub const SlidingReward = sliding_reward.SlidingReward;
 pub const SlidingRewardError = sliding_reward.Error;
 
+pub const decaying_reward = @import("decaying_reward.zig");
+pub const DecayingReward = decaying_reward.DecayingReward;
+pub const DecayingRewardError = decaying_reward.Error;
+
 test {
     @import("std").testing.refAllDecls(@This());
 }
