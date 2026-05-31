@@ -34,6 +34,11 @@ pub const decaying_reward = @import("decaying_reward.zig");
 pub const DecayingReward = decaying_reward.DecayingReward;
 pub const DecayingRewardError = decaying_reward.Error;
 
+pub const per_arm_sliding = @import("per_arm_sliding.zig");
+pub const PerArmSlidingStore = per_arm_sliding.PerArmSlidingStore;
+pub const ArmId = per_arm_sliding.ArmId;
+pub const PerArmSlidingError = per_arm_sliding.Error;
+
 test {
     @import("std").testing.refAllDecls(@This());
 }

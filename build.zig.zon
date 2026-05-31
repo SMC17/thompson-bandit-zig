@@ -1,6 +1,6 @@
 .{
     .name = .thompson_bandit,
-    .version = "0.0.9",
+    .version = "0.0.10",
     .fingerprint = 0x9d6d30db26bd74db,
     .minimum_zig_version = "0.16.0",
     .paths = .{
