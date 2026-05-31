@@ -129,7 +129,9 @@ test "bestArm returns highest-mean arm" {
     defer s.deinit();
     try testing.expectEqual(@as(?ArmId, null), s.bestArm());
     try s.record(1, 0);
+    try s.record(1, 0);
     try s.record(2, 1);
+    try s.record(2, 0);
     try s.record(3, 1);
     try s.record(3, 1);
     try testing.expectEqual(@as(?ArmId, 3), s.bestArm());
