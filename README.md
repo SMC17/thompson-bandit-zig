@@ -7,7 +7,7 @@ Beta posterior + Thompson sampling + adaptive capacity allocator in Zig 0.16. Th
 
 ## Status
 
-**v0.0.1 — 12/12 tests pass on Zig 0.16.** `ArmPosterior` tracks Beta(α, β) per arm; `CapacityAllocator` samples each arm's posterior and returns a fractional allocation summing to 1.0; deterministic Wyhash-seeded RNG so allocations are reproducible.
+**Measured 2026-08-20:** `zig build test --summary all` on Zig 0.16.0 at `18898c9` → **70/70 tests passed**. README previously advertised 12/12. Extra modules in the same package (`wcet`, `pcg64`, `sliding_reward`, `per_arm_sliding`, `alloc_guard`, `samplers`, `decaying_reward`) are a cohesion dump — split before any public flip. Stay private; not a company.
 
 ## What ships
 
@@ -20,7 +20,7 @@ Beta posterior + Thompson sampling + adaptive capacity allocator in Zig 0.16. Th
 ## Build
 
 ```sh
-zig build test                  # 12 unit tests
+zig build test --summary all    # 70/70 on Zig 0.16.0 (2026-08-20)
 ```
 
 ## What ships does NOT do (yet)
