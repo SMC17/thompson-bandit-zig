@@ -1,51 +1,52 @@
 # thompson-bandit-zig
 
-[![License: AGPL-3.0-or-later](https://img.shields.io/badge/License-AGPL--3.0--or--later-blue.svg)](LICENSE)
-[![Zig](https://img.shields.io/badge/Zig-0.16-orange.svg)](https://ziglang.org/)
+Beta posteriors and sampled capacity shares in Zig 0.16.0. This repository stays
+private and retains AGPL-3.0-or-later terms. The complete license is in LICENSE;
+NOTICE preserves the original declaration and copyright.
 
-Beta posterior + Thompson sampling + adaptive capacity allocator in Zig 0.16. Three-source synthesis: AWS DynamoDB L650 adaptive capacity throttling + Doordash L46 Thompson-bandit search ranking + Datadog L37 Thompson-based cardinality control.
-
-## Status
-
-**Measured 2026-08-20:** `zig build test --summary all` on Zig 0.16.0 at `18898c9` → **70/70 tests passed**. README previously advertised 12/12. Extra modules in the same package (`wcet`, `pcg64`, `sliding_reward`, `per_arm_sliding`, `alloc_guard`, `samplers`, `decaying_reward`) are a cohesion dump — split before any public flip. Stay private; not a company.
-
-## What ships
-
-- `ArmPosterior` with `uniform()` / `fromCounts(successes, failures)` / `recordSuccess` / `recordFailure` / `mean` / `sample(rng)`.
-- Beta(α, β) sampler via order statistics (integer α + β; sufficient for the count-update regime v0.0.1 ships).
-- `CapacityAllocator` with `init(K, floor)` / `armCount` / `arm(idx)` / `allocate(rng)` / `deinit`.
-- Floor option: every arm gets at least a minimum share so cold arms still get explored (matches AWS DynamoDB's 25%/N baseline pattern).
-- `rngFromSeed(u64)` — deterministic `DefaultPrng` for reproducible allocations + tests.
-
-## Build
+## Keep one seeded allocation record
 
 ```sh
-zig build test --summary all    # 70/70 on Zig 0.16.0 (2026-08-20)
+zig build test --summary all
+zig build -Doptimize=ReleaseSafe
+./zig-out/bin/bandit-task 42 0.2 > allocation.json
+python3 tools/check_allocation.py
 ```
 
-## What ships does NOT do (yet)
+The original synthetic fixture has three success/failure pairs: (8,2), (1,9)
+and (0,0). With a Beta(1,1) prior their posteriors are Beta(9,3), Beta(2,10)
+and Beta(1,1). The task emits counts, parameters, means, sampled weights and
+shares. Every share must be at least the requested 0.2 and their sum must be
+one. Repeat the same seed, toolchain and command to get identical JSON bytes.
 
-- **No real-valued Beta(α, β).** v0.0.1 uses the integer-parameter order-statistic shortcut. v0.0.2 wires the gamma-distribution ratio for arbitrary real α + β.
-- **No windowed posteriors.** v0.0.1 accumulates indefinitely; concept drift erodes accuracy over long horizons. v0.0.2 ships sliding-window posteriors (Datadog L37 pattern).
-- **No multi-armed allocator with capacity floors per arm.** v0.0.1 ships a single uniform floor. v0.0.3 wires per-arm capacity floors + minimum-throughput contracts (AWS DynamoDB partition-quota pattern).
-- **No persistence.** Memory-only at v0.0.1. v0.0.2 wires the on-disk layer (composes with shipped `tableformat-zig`).
+The independent Python checker uses rational posterior moments and a bisection
+allocation reference. It checks 15 seed/floor combinations, seven command-line
+refusals and repeat identity. A fixed 5,000-draw probe checks Beta(3,2) mean,
+second moment and CDF at one-half within a declared 0.03 tolerance. These are
+bounded numerical sanity checks, not distribution certification.
 
-## Composes with shipped substrate
+The floor previously fell below its promise after normalization. The allocator
+now reserves floored mass before redistributing the rest. Initialization also
+cleans up on allocation failure. Empty arm sets and infeasible, negative or
+nonfinite floors return errors; allocation rechecks a publicly changed floor.
 
-- **`expt-substrate` Wyhash seed-derivation.** Same seed family → reproducible A/B → bandit transitions.
-- **`tableformat-zig` (v0.0.2 storage)** — manifest of arm-state snapshots.
-- **Spark AQE L846 (mined this turn)** — Thompson posterior drives adaptive replanning at shuffle boundaries. Same primitive serves orderbook + DynamoDB-class + Spark-class.
+## Scope
 
-## Honest non-claims
+- `ArmPosterior`: count-based updates, mean and integer-parameter sampling.
+- `CapacityAllocator`: normalized posterior samples with a uniform lower bound.
+  This is a capacity-sharing policy; it does not select a single winning arm.
+- `rngFromSeed`: repeatability with the pinned Zig generator/toolchain.
+- The existing reward/window, PCG, WCET and other helper modules remain exported.
+  The allocation task does not establish their suitability for a deployment.
 
-- Pre-1.0 substrate.
-- Order-statistic Beta sampler caps `α + β` at 1024; beyond that v0.0.1 falls back to the mean (no sample variance). v0.0.2 ships gamma-ratio sampling without that cap.
-- No multi-threading guarantees; caller serialises access.
+The sampler draws and sorts `alpha + beta - 1` uniforms when that count is at
+most 1024. Above that boundary it returns the posterior mean and has no sampling
+variance. The task makes that fallback visible. Direct posterior fields must
+remain positive and counts/additions must fit u64; arbitrary count overflow is
+not handled by a checked update API. See [the task contract](docs/ALLOCATION_TASK.md).
 
-## Credit
-
-Concepts adapted from AWS DynamoDB adaptive capacity (castle L650), Doordash search ranking (castle L46), Datadog cardinality control (castle L37). Frontier port by Sean Collins (`sean@sunlitmoon.online`).
-
-## License
-
-AGPL-3.0-or-later. See `LICENSE`.
+No online learning, service-capacity guarantee, regret bound, performance result,
+customer workload, persistent state or automatic connection to other portfolio
+projects is demonstrated. Historical research-source notes are context rather
+than a measured DynamoDB/Doordash/Datadog integration. Package visibility and
+licensing do not change through the task.

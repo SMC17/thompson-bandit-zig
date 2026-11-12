@@ -93,7 +93,9 @@ pub const CapacityAllocator = struct {
     floor_per_arm: f64,
 
     pub fn init(allocator: std.mem.Allocator, k: usize, floor: f64) !CapacityAllocator {
+        try validateAllocation(k, floor);
         var arms: std.array_list.Managed(ArmPosterior) = .init(allocator);
+        errdefer arms.deinit();
         var i: usize = 0;
         while (i < k) : (i += 1) try arms.append(.uniform());
         return .{ .allocator = allocator, .arms = arms, .floor_per_arm = floor };
@@ -117,6 +119,7 @@ pub const CapacityAllocator = struct {
     /// returned slice and frees it.
     pub fn allocate(self: *CapacityAllocator, rng: *std.Random.DefaultPrng) ![]f64 {
         const k = self.arms.items.len;
+        try validateAllocation(k, self.floor_per_arm);
         var out = try self.allocator.alloc(f64, k);
         errdefer self.allocator.free(out);
 
@@ -144,13 +147,50 @@ pub const CapacityAllocator = struct {
     }
 };
 
+fn validateAllocation(k: usize, floor: f64) !void {
+    if (k == 0) return error.InvalidArmCount;
+    if (!std.math.isFinite(floor) or floor < 0 or floor > 1.0 / @as(f64, @floatFromInt(k)))
+        return error.InvalidFloor;
+}
+
 fn applyFloor(allocations: []f64, floor: f64) void {
-    var total: f64 = 0;
-    for (allocations) |a| total += @max(a, floor);
-    if (total == 0) return;
-    for (allocations) |*a| {
-        a.* = @max(a.*, floor) / total;
+    // Pin low shares first, then distribute only the remaining mass. Dividing
+    // max(share, floor) by its sum would immediately push pinned shares below
+    // the floor again. Negative values are temporary markers, never returned.
+    var pinned: usize = 0;
+    while (true) {
+        const remaining = 1.0 - @as(f64, @floatFromInt(pinned)) * floor;
+        var total: f64 = 0;
+        var active: usize = 0;
+        for (allocations) |a| if (a >= 0) {
+            total += a;
+            active += 1;
+        };
+        if (active == 0) break;
+        if (total == 0) {
+            for (allocations) |*a| if (a.* >= 0) {
+                a.* = remaining / @as(f64, @floatFromInt(active));
+            };
+            break;
+        }
+        var changed = false;
+        for (allocations) |*a| {
+            if (a.* >= 0 and a.* / total * remaining < floor) {
+                a.* = -1;
+                pinned += 1;
+                changed = true;
+            }
+        }
+        if (!changed) {
+            for (allocations) |*a| if (a.* >= 0) {
+                a.* = a.* / total * remaining;
+            };
+            break;
+        }
     }
+    for (allocations) |*a| if (a.* < 0) {
+        a.* = floor;
+    };
 }
 
 /// Build a DefaultPrng deterministically from a u64 seed (e.g.
@@ -285,6 +325,7 @@ test "CapacityAllocator floor lifts cold arms above floor" {
     defer alloc.deinit();
     var i: usize = 0;
     while (i < 100) : (i += 1) alloc.arm(0).recordSuccess();
+    i = 0;
     while (i < 100) : (i += 1) alloc.arm(1).recordFailure();
 
     var rng = rngFromSeed(11);
@@ -304,4 +345,56 @@ test "rngFromSeed reproducibility — same seed yields same sequence" {
     while (i < 100) : (i += 1) {
         try testing.expectEqual(a.next(), b.next());
     }
+}
+
+test "floor survives renormalization of a skewed allocation" {
+    var shares = [_]f64{ 0.95, 0.04, 0.01 };
+    applyFloor(&shares, 0.2);
+    for (shares, [_]f64{ 0.6, 0.2, 0.2 }) |actual, expected| {
+        try testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+}
+
+fn initializationAllocationProbe(a: std.mem.Allocator) !void {
+    var alloc = try CapacityAllocator.init(a, 256, 0);
+    defer alloc.deinit();
+}
+
+test "allocator initialization cleans up on allocation failure" {
+    try testing.checkAllAllocationFailures(testing.allocator, initializationAllocationProbe, .{});
+}
+
+test "allocator refuses empty arms and infeasible or nonfinite floors" {
+    try testing.expectError(error.InvalidArmCount, CapacityAllocator.init(testing.allocator, 0, 0));
+    for ([_]f64{ -0.1, 0.34, std.math.nan(f64), std.math.inf(f64) }) |floor| {
+        try testing.expectError(error.InvalidFloor, CapacityAllocator.init(testing.allocator, 3, floor));
+    }
+}
+
+test "floor can pin another arm on a later redistribution" {
+    var shares = [_]f64{ 0.6, 0.25, 0.1, 0.05 };
+    applyFloor(&shares, 0.2);
+    for (shares, [_]f64{ 0.4, 0.2, 0.2, 0.2 }) |actual, expected| {
+        try testing.expectApproxEqAbs(expected, actual, 1e-12);
+    }
+}
+
+test "maximal feasible floor and one arm retain unit mass" {
+    var shares = [_]f64{ 0.99, 0.01 };
+    applyFloor(&shares, 0.5);
+    for (shares) |s| try testing.expectApproxEqAbs(@as(f64, 0.5), s, 1e-12);
+    var alloc = try CapacityAllocator.init(testing.allocator, 1, 1);
+    defer alloc.deinit();
+    var rng = rngFromSeed(7);
+    const one = try alloc.allocate(&rng);
+    defer testing.allocator.free(one);
+    try testing.expectEqual(@as(f64, 1), one[0]);
+}
+
+test "allocation rechecks a publicly mutated floor" {
+    var alloc = try CapacityAllocator.init(testing.allocator, 3, 0.2);
+    defer alloc.deinit();
+    alloc.floor_per_arm = 0.5;
+    var rng = rngFromSeed(7);
+    try testing.expectError(error.InvalidFloor, alloc.allocate(&rng));
 }
