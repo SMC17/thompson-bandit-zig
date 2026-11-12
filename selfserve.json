@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "project": "thompson-bandit-zig",
+  "visibility": "private",
+  "systems": [
+    "Darwin",
+    "Linux"
+  ],
+  "required_files": [
+    "README.md",
+    "LICENSE",
+    "NOTICE",
+    "docs/ALLOCATION_TASK.md",
+    "tools/check_allocation.py"
+  ],
+  "task": "Keep a seeded synthetic allocation JSON record; independently check posterior moments and minimum-share constraints.",
+  "steps": [
+    {
+      "name": "unit and allocation failure tests",
+      "argv": [
+        "zig",
+        "build",
+        "test",
+        "-Doptimize=ReleaseSafe",
+        "--summary",
+        "all"
+      ],
+      "minimum_tests": 76
+    },
+    {
+      "name": "install task binary",
+      "argv": [
+        "zig",
+        "build",
+        "-Doptimize=ReleaseSafe"
+      ]
+    },
+    {
+      "name": "independent posterior and allocation checks",
+      "argv": [
+        "python3",
+        "tools/check_allocation.py"
+      ],
+      "contains": "ALLOCATION_TASK_OK cases=15 refusals=7"
+    }
+  ],
+  "bundle_paths": [
+    "zig-out/bin/bandit-task"
+  ],
+  "limitations": [
+    "Original synthetic counts only; no customer workload, SLO or policy optimality evidence.",
+    "Integer Beta order-statistic sampler returns the mean when alpha+beta-1 exceeds 1024; no variance in that fallback.",
+    "Count overflow/direct invalid posterior mutation remain caller preconditions.",
+    "AGPL-3.0-or-later retained; private local packs, no automatic publication."
+  ]
+}
