@@ -1,5 +1,7 @@
 # thompson-bandit-zig
 
+**[Status](STATUS.md) · [Roadmap](ROADMAP.md) · [Contributing](CONTRIBUTING.md) · [Issues](https://github.com/SMC17/thompson-bandit-zig/issues) · [Public roadmap](https://github.com/users/SMC17/projects/16)**
+
 Beta posteriors and sampled capacity shares in Zig 0.16.0. This repository stays
 private and retains AGPL-3.0-or-later terms. The complete license is in LICENSE;
 NOTICE preserves the original declaration and copyright.
